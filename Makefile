@@ -1,7 +1,7 @@
-SRC := 6502.c
+SRC = $(wildcard ./src/*.c)
 
 OUT=main
-CFLAGS=-ggdb -Wall -Wunused-parameter 
+CFLAGS=-pedantic -O0 -ggdb -Wall -Wunused-parameter 
 
 all: $(OUT)
 
