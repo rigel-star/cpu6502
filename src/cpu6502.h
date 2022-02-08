@@ -6,16 +6,16 @@
 
 #define STACK_BEGIN 	0x0100
 #define STACK_END 		0x01FF
-#define PROG_BEGIN 		0x1000
+#define PROG_BEGIN 		0xFFFC
 #define PAGE_SIZE 		0xFF
 
 // 6502 CPU
 typedef struct cpu6502
 {
-	byte A, X, Y; // register a, x and y
-	byte SP; // stack pointer
-	word PC; // program counter
-	byte status; // status bits
+	byte A, X, Y; 	// register a, x and y
+	byte SP; 		// stack pointer
+	word PC; 		// program counter
+	byte status; 	// status bits
 } cpu6502_t;
 
 // cpu flags
@@ -32,7 +32,7 @@ typedef enum cpu_flag
 } cpu_flag_t;
 
 #define CPU_RESET_FLAGS(cpu, flags) cpu->status &= ~((flags))
-#define CPU_SET_FLAGS(cpu, flags) cpu |= (flags)
+#define CPU_SET_FLAGS(cpu, flags) cpu->status |= (flags)
 
 void cpu_reset(cpu6502_t *cpu, ram_t *rm);
 
@@ -73,11 +73,11 @@ typedef enum
 	INS_LDX_ZPY		= 0xB6, // Load X zero page + Y
 	INS_LDX_ABS		= 0xAE, // Load X absolute
 	INS_LDX_ABSY	= 0xBE, // Load X absolute + Y
-	INS_LDY_IMM 	= 0xA2, // Load Y immediate
-	INS_LDY_ZP		= 0xA6, // Load Y zero page
-	INS_LDY_ZPX		= 0xB6, // Load Y zero page + X
-	INS_LDY_ABS		= 0xAE, // Load Y absolute
-	INS_LDY_ABSX	= 0xBE, // Load Y absolute + X
+	INS_LDY_IMM 	= 0xA0, // Load Y immediate
+	INS_LDY_ZP		= 0xA4, // Load Y zero page
+	INS_LDY_ZPX		= 0xB4, // Load Y zero page + X
+	INS_LDY_ABS		= 0xAC, // Load Y absolute
+	INS_LDY_ABSX	= 0xBC, // Load Y absolute + X
 	INS_JSR 		= 0x20, // Jump to subroutine
 	INS_RTS 		= 0x60, // Return from subroutine
 	INS_AND_IMM 	= 0x29, // And immediate with accumulator
@@ -94,8 +94,8 @@ typedef enum
 	INS_ASL_A 		= 0x0A, // Left Shift A by 1 bit
 	INS_ASL_ZP		= 0x06, // Left Shift value from zero page address by 1 bit
 	INS_ASL_ZPX		= 0x16, // Left Shift value from zero page address + X by 1 bit
-	INS_ASL_ABS		= 0x16, // Left Shift value from absolute address by 1 bit
-	INS_ASL_ABSX	= 0x16, // Left Shift value from absolute address + X by 1 bit
+	INS_ASL_ABS		= 0x0E, // Left Shift value from absolute address by 1 bit
+	INS_ASL_ABSX	= 0x1E, // Left Shift value from absolute address + X by 1 bit
 	INS_BIT_ZP		= 0x24, // Test bit stored at zero page address
 	INS_BIT_ABS		= 0x2C, // Test bit stored at absolute address
 	INS_CLC			= 0x18, // Clear carry flag

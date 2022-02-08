@@ -12,6 +12,7 @@
 
 static void dump_cpu_flags(cpu6502_t *cpu)
 {
+	puts("\nFlags: ");
 	printf("Carry: 		%d\n", cpu->status & C);
 	printf("Zero: 		%d\n", cpu->status & Z ? 1 : 0);
 	printf("Interrupt: 	%d\n", cpu->status & I ? 1 : 0);
@@ -22,6 +23,15 @@ static void dump_cpu_flags(cpu6502_t *cpu)
 	printf("Negative: 	%d\n", cpu->status & N ? 1 : 0);
 }
 
+static void dump_cpu_regs(cpu6502_t *cpu)
+{
+	puts("\nRegisters: ");
+	printf("A: \t0x%x\n", cpu->A);
+	printf("X: \t0x%x\n", cpu->X);
+	printf("Y: \t0x%x\n", cpu->Y);
+	printf("PC: 	0x%x\n", cpu->PC);
+	printf("SP: 	0x%x\n", cpu->SP);
+}
 
 void cpu_reset(cpu6502_t *cpu, ram_t *rm)
 {
@@ -495,7 +505,9 @@ void AND_INDY(cpu6502_t *cpu, ram_t *ram)
 void JMP_ABS(cpu6502_t *cpu, ram_t *ram)
 {
 	word abs_addr = cpu_fetch_word(cpu, ram);
+	printf("[PC] From: 0x%x to: ", cpu->PC);
 	cpu->PC = abs_addr;
+	printf("0x%x\n", cpu->PC);
 }
 
 void JMP_IND(cpu6502_t *cpu, ram_t *ram)
@@ -787,10 +799,6 @@ void cpu_execute(cpu6502_t *cpu, ram_t *ram)
 			LDY_ABSX(cpu, ram);
 			break;
 
-		case INS_AND_IMM:
-			AND_IMM(cpu, ram);
-			break;
-
 		case INS_JSR:
 			JSR(cpu, ram);
 			break;
@@ -954,7 +962,7 @@ void cpu_execute(cpu6502_t *cpu, ram_t *ram)
 void load_into_memory(ram_t *ram, const char *fname)
 {
 	// (void) ram;
-	int32_t fd = open(fname, O_RDONLY);
+	const int32_t fd = open(fname, O_RDONLY);
 	if(fd < 0)
 	{
 		fprintf(stderr, "File not found %s\n", fname);
@@ -968,7 +976,7 @@ void load_into_memory(ram_t *ram, const char *fname)
 		exit(2);
 	}
 
-	size_t LEN = stat_buf.st_size; // length of file in bytes
+	const size_t LEN = stat_buf.st_size; // length of file in bytes
 	byte buffer[LEN];
 	memset(buffer, 0, sizeof buffer);
 
@@ -978,8 +986,15 @@ void load_into_memory(ram_t *ram, const char *fname)
 		exit(3);
 	}
 
+	word begin = PROG_BEGIN;
+	ram->data[begin++] = INS_JMP_ABS;
+	ram->data[begin++] = 0x00;
+	ram->data[begin] = 0x40;
+
+#define EXEC_START 0x4000
+
 	word bidx = 0;
-	for(word i = PROG_BEGIN; i < PROG_BEGIN + LEN; i++)
+	for(word i = EXEC_START; i < EXEC_START + LEN; i++)
 		ram->data[i] = buffer[bidx++];
 
 	close(fd);
@@ -993,9 +1008,21 @@ int main(void)
 	ram_init(&ram);
 	cpu_reset(&cpu, &ram);
 	load_into_memory(&ram, "./src/output.ef");
+
+	/*
+	ram.data[PROG_BEGIN + 1] = 0x00;
+	ram.data[PROG_BEGIN + 2] = 0x40;
+	ram.data[0x4000] = INS_LDA_IMM;
+	ram.data[0x4001] = 0x2;
+	ram.data[0x4002] = INS_ADC_IMM;
+	ram.data[0x4003] = 0x5;
+	ram.data[0x4004] = INS_KIL;
+	*/
+
 	cpu_execute(&cpu, &ram);
 	printf("A: %d\n", cpu.A);
-	printf("Number of cycles: %d\n", cycles);
+
 	dump_cpu_flags(&cpu);
+	dump_cpu_regs(&cpu);
 	return 0;
 }
