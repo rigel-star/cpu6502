@@ -6,7 +6,7 @@
 
 #define STACK_BEGIN 	0x0100
 #define STACK_END 		0x01FF
-#define PROG_START 		0xFFFC
+#define PROG_BEGIN 		0x1000
 #define PAGE_SIZE 		0xFF
 
 // 6502 CPU
@@ -30,6 +30,9 @@ typedef enum cpu_flag
 	Z = 1 << 1, // zero
 	C = 1 << 0  // carry
 } cpu_flag_t;
+
+#define CPU_RESET_FLAGS(cpu, flags) cpu->status &= ~((flags))
+#define CPU_SET_FLAGS(cpu, flags) cpu |= (flags)
 
 void cpu_reset(cpu6502_t *cpu, ram_t *rm);
 
@@ -59,7 +62,7 @@ typedef enum
 {
 	INS_LDA_IMM 	= 0xA9, // Load accumulator immediate
 	INS_LDA_ZP 		= 0xA5, // Load accumulator from zero page i.e memory address 0-255
-	INS_LDA_ZPX 	= 0xB5, // Loda accumulator by adding value of X in immediate zero page address. 
+	INS_LDA_ZPX 	= 0xB5, // Loda accumulator by adding value of X in immediate zero page address.
 	INS_LDA_ABS 	= 0xAD, // Load from absolute address
 	INS_LDA_ABSX 	= 0xBD, // Load accumulator absoulute addres + X
 	INS_LDA_ABSY 	= 0xB9, // Load A absolute address + Y
@@ -86,10 +89,10 @@ typedef enum
 	INS_AND_INDX 	= 0x21, // And A with given indirect address value + X
 	INS_AND_INDY 	= 0x31, // And A with given indirect address value + Y
 	INS_JMP_ABS		= 0x4C, // Jump to absolute address
-	INS_JMP_IND		= 0x6C, // Jump to 
+	INS_JMP_IND		= 0x6C, // Jump to
 	INS_KIL			= 0x02, // Freeze or kill the CPU
 	INS_ASL_A 		= 0x0A, // Left Shift A by 1 bit
-	INS_ASl_ZP		= 0x06, // Left Shift value from zero page address by 1 bit
+	INS_ASL_ZP		= 0x06, // Left Shift value from zero page address by 1 bit
 	INS_ASL_ZPX		= 0x16, // Left Shift value from zero page address + X by 1 bit
 	INS_ASL_ABS		= 0x16, // Left Shift value from absolute address by 1 bit
 	INS_ASL_ABSX	= 0x16, // Left Shift value from absolute address + X by 1 bit
@@ -128,7 +131,7 @@ void ADC_INDX(cpu6502_t *cpu, ram_t *ram);
 void ADC_INDY(cpu6502_t *cpu, ram_t *ram);
 
 
-/* Flag set/reset 
+/* Flag set/reset
 void CLC(cpu6502_t *cpu);
 void SEC(cpu6502_t *cpu);
 void CLI(cpu6502_t *cpu);
@@ -139,13 +142,13 @@ void SED(cpu6502_t *cpu);
 */
 
 /*
- * 
+ *
  * Clearing and setting status flags
- * 
+ *
  * */
  /*
-__attribute__((always_inline)) 
-inline 
+__attribute__((always_inline))
+inline
 */
 static inline void CLC(cpu6502_t *cpu)
 {

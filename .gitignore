@@ -1,4 +1,9 @@
-*.o
-*.elf
-*.s
-*.i
+./src/**/*.o
+./src/**/*.elf
+./src/**/*.s
+./src/**/*.i
+./src/**/*.ef
+./src/**/__pycache__
+./src/**/*.a65
+./*.[o|elf|ef|s]
+./tests/**

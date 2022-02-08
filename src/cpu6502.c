@@ -26,7 +26,7 @@ static void dump_cpu_flags(cpu6502_t *cpu)
 void cpu_reset(cpu6502_t *cpu, ram_t *rm)
 {
 	memset(cpu, 0, sizeof *cpu);
-	cpu->PC = PROG_START;
+	cpu->PC = PROG_BEGIN;
 	cpu->SP = PAGE_SIZE;
 	cpu->status = 0;
 	cpu->A = cpu->X = cpu->Y = 0x0;
@@ -42,7 +42,7 @@ byte cpu_fetch_byte(cpu6502_t *cpu, ram_t *ram)
 	cycles++;
 	return data;
 }
-	
+
 // Fetch word(16 bit) from RAM increasing program counter twice. Takes two clock cycles.
 word cpu_fetch_word(cpu6502_t *cpu, ram_t *ram)
 {
@@ -71,7 +71,7 @@ word cpu_read_word(ram_t *ram, word addr)
 	cycles += 2;
 	byte high = 0x0, low = 0x0;
 	if(__ORDER_LITTLE_ENDIAN__)
-	{	
+	{
 		low = ram_read(ram, addr);
 		high = ram_read(ram, addr + 1);
 	}
@@ -158,9 +158,9 @@ word cpu_pop_stack_word(cpu6502_t *cpu, ram_t *ram)
 }
 
 /*
- * 
+ *
  * Add with carry
- * 
+ *
  * */
 
 // Changing status bits related to ADC operation
@@ -184,12 +184,12 @@ void ADC_IMM(cpu6502_t *cpu, ram_t *ram)
 
 
 /*
- * 
+ *
  *  assembler	opcode
  *  ---------   ------
  * 	ADC zp		65
  *	ADC zp, X	75
- * 
+ *
  * */
 static void perform_adc_zp(cpu6502_t *cpu, ram_t *ram, off_t addr_off)
 {
@@ -211,13 +211,13 @@ void ADC_ZPX(cpu6502_t *cpu, ram_t *ram)
 }
 
 /*
- * 
+ *
  *  assembler	opcode
  *  ---------   ------
  * 	ADC abs		6D
  *	ADC abs, X	7D
  *	ADC abs, Y	79
- * 
+ *
  * */
 static void perform_adc_abs(cpu6502_t *cpu, ram_t *ram, off_t addr_off)
 {
@@ -245,12 +245,12 @@ void ADC_ABSY(cpu6502_t *cpu, ram_t *ram)
 
 
 /*
- * 
+ *
  *  assembler		opcode
  *  ---------   	------
  * 	ADC (ind, x)	61
  *	ADC (ind, y)	71
- * 
+ *
  * */
 static void perform_adc_ind(cpu6502_t *cpu, ram_t *ram, off_t addr_off)
 {
@@ -272,28 +272,16 @@ void ADC_INDY(cpu6502_t *cpu, ram_t *ram)
 	perform_adc_ind(cpu, ram, cpu->Y);
 }
 
-
-static inline void cpu_set_flags(cpu6502_t *cpu, byte flags)
-{
-	cpu->status |= flags;
-}
-
-static inline void cpu_reset_flags(cpu6502_t *cpu, byte flags)
-{
-	cpu->status &= ~(flags);
-}
-
 /*
- * 
+ *
  * Increment by 1
- * 
+ *
  * */
 
 // Changing status bits related to ASL operation
-static void inc_set_status(cpu6502_t *cpu)
+static inline void inc_set_status(cpu6502_t *cpu)
 {
-	cpu->status |= Z;
-	cpu->status |= (cpu->A & N);
+	CPU_SET_FLAGS(cpu, Z | (cpu->A & N));
 }
 
 // increment memory at zero page memory location
@@ -329,24 +317,26 @@ void INC_ABSX(cpu6502_t *cpu, ram_t *ram)
 }
 
 /*
- * 
+ *
  * Test bit
- * 
+ *
  * */
 
 // Changing status bits related to BIT operation
 void bit_set_status(cpu6502_t *cpu, byte data)
 {
-	cpu->status |= (data & N); // 7th bit goes to N flag
-	cpu->status |= (data & V); // 6th bit goes to V flag
+	// cpu->status |= (data & N); // 7th bit goes to N flag
+	// cpu->status |= (data & V); // 6th bit goes to V flag
+	CPU_SET_FLAGS(cpu, (data & N) | (data & V)); // 7th bit goes to N flag
+												// 6th bit goes to V flag
 }
-	
+
 void BIT_ZP(cpu6502_t *cpu, ram_t *ram)
 {
 	byte zp_addr = cpu_fetch_byte(cpu, ram);
 	byte data = cpu_read_byte(ram, zp_addr);
 	bit_set_status(cpu, data);
-	
+
 }
 
 void BIT_ABS(cpu6502_t *cpu, ram_t *ram)
@@ -358,11 +348,11 @@ void BIT_ABS(cpu6502_t *cpu, ram_t *ram)
 
 
 /*
- * 
+ *
  * Shift left by 1
- * 
+ *
  * */
- 
+
 // Changing status bits related to ASL operation
 void asl_set_status(cpu6502_t *cpu)
 {
@@ -410,11 +400,11 @@ void ASL_ABSX(cpu6502_t *cpu, ram_t *ram)
 }
 
 /*
- * 
+ *
  * AND with accumulator
- * 
+ *
  * */
- 
+
 // Changing status bits related to AND operation
 void and_set_status(cpu6502_t *cpu)
 {
@@ -425,15 +415,15 @@ void and_set_status(cpu6502_t *cpu)
 void AND_IMM(cpu6502_t *cpu, ram_t *ram)
 {
 	byte data = cpu_fetch_byte(cpu, ram);
-	cpu->A &= data;	
-	and_set_status(cpu);	
+	cpu->A &= data;
+	and_set_status(cpu);
 }
 
 void AND_ZP(cpu6502_t *cpu, ram_t *ram)
 {
 	byte zp_addr = cpu_fetch_byte(cpu, ram);
 	cpu->A &= cpu_read_byte(ram, zp_addr);
-	and_set_status(cpu);	
+	and_set_status(cpu);
 }
 
 void AND_ZPX(cpu6502_t *cpu, ram_t *ram)
@@ -444,9 +434,9 @@ void AND_ZPX(cpu6502_t *cpu, ram_t *ram)
 }
 
 /*
- * 
+ *
  * ABS
- * 
+ *
  * */
 static void perform_and_abs(cpu6502_t *cpu, ram_t *ram, off_t addr_off)
 {
@@ -472,9 +462,9 @@ void AND_ABSY(cpu6502_t *cpu, ram_t *ram)
 
 
 /*
- * 
+ *
  * AND (ind, x/y)
- * 
+ *
  * */
 static void perform_and_ind(cpu6502_t *cpu, ram_t *ram, off_t addr_off)
 {
@@ -496,12 +486,12 @@ void AND_INDY(cpu6502_t *cpu, ram_t *ram)
 
 
 /*
- * 
+ *
  * Unconditional Jump
- * 
+ *
  * JMP does not change any status bit
  * */
- 
+
 void JMP_ABS(cpu6502_t *cpu, ram_t *ram)
 {
 	word abs_addr = cpu_fetch_word(cpu, ram);
@@ -516,18 +506,18 @@ void JMP_IND(cpu6502_t *cpu, ram_t *ram)
 }
 
 /*
- * 
+ *
  * Load Accumulator
- * 
+ *
  * */
- 
+
 // Changing status bits related to LDA operation
 void lda_set_status(cpu6502_t *cpu)
 {
 	cpu->status |= Z;
 	cpu->status |= (cpu->A & N);
 }
-	
+
 void LDA_IMM(cpu6502_t *cpu, ram_t *ram)
 {
 	byte data = cpu_fetch_byte(cpu, ram);
@@ -548,7 +538,7 @@ void LDA_ZPX(cpu6502_t *cpu, ram_t *ram)
 	imm_zp_addr += cpu->X;
 	cycles++; // ^ for addition
 	cpu->A = cpu_read_byte(ram, imm_zp_addr);
-	lda_set_status(cpu);	
+	lda_set_status(cpu);
 }
 
 void LDA_ABS(cpu6502_t *cpu, ram_t *ram)
@@ -593,11 +583,11 @@ void LDA_INDY(cpu6502_t *cpu, ram_t *ram)
 }
 
 /*
- * 
+ *
  * Load X
- * 
+ *
  * LDX affects same flags as LDA
- * 
+ *
  * */
 void LDX_IMM(cpu6502_t *cpu, ram_t *ram)
 {
@@ -619,7 +609,7 @@ void LDX_ZPY(cpu6502_t *cpu, ram_t *ram)
 	imm_zp_addr += cpu->Y;
 	cycles++; // ^ for addition
 	cpu->X = cpu_read_byte(ram, imm_zp_addr);
-	lda_set_status(cpu);	
+	lda_set_status(cpu);
 }
 
 void LDX_ABS(cpu6502_t *cpu, ram_t *ram)
@@ -639,11 +629,11 @@ void LDX_ABSY(cpu6502_t *cpu, ram_t *ram)
 
 
 /*
- * 
+ *
  * Load Y
- * 
+ *
  * LDY affects same flags as LDA
- * 
+ *
  * */
  void LDY_IMM(cpu6502_t *cpu, ram_t *ram)
 {
@@ -665,7 +655,7 @@ void LDY_ZPX(cpu6502_t *cpu, ram_t *ram)
 	imm_zp_addr += cpu->X;
 	cycles++; // ^ for addition
 	cpu->Y = cpu_read_byte(ram, imm_zp_addr);
-	lda_set_status(cpu);	
+	lda_set_status(cpu);
 }
 
 void LDY_ABS(cpu6502_t *cpu, ram_t *ram)
@@ -684,11 +674,11 @@ void LDY_ABSX(cpu6502_t *cpu, ram_t *ram)
 }
 
 /*
- * 
+ *
  * Jump to subroutine
- * 
+ *
  * */
- 
+
 void JSR(cpu6502_t *cpu, ram_t *ram)
 {
 	word sub_addr = cpu_fetch_word(cpu, ram);
@@ -696,13 +686,13 @@ void JSR(cpu6502_t *cpu, ram_t *ram)
 	cpu->PC = sub_addr; // copy subroutine address to program counter
 	cycles++; 			// 1 cycle to set program counter to subroutine address
 }
-	
+
 /*
- * 
+ *
  * Return from subroutine
- * 
+ *
  * */
- 
+
 void RTS(cpu6502_t *cpu, ram_t *ram)
 {
 	word addr = cpu_pop_stack_word(cpu, ram);
@@ -712,9 +702,9 @@ void RTS(cpu6502_t *cpu, ram_t *ram)
 
 
 /*
- * 
+ *
  * Execute instruction from memory
- * 
+ *
  * */
 
 void cpu_execute(cpu6502_t *cpu, ram_t *ram)
@@ -723,7 +713,6 @@ void cpu_execute(cpu6502_t *cpu, ram_t *ram)
 	while(!process_complete)
 	{
 		byte opcode = cpu_fetch_byte(cpu, ram);
-
 		switch(opcode)
 		{
 		case INS_LDA_IMM:
@@ -750,26 +739,210 @@ void cpu_execute(cpu6502_t *cpu, ram_t *ram)
 			LDA_ABSY(cpu, ram);
 		break;
 
+		case INS_LDA_INDX:
+			LDA_INDX(cpu, ram);
+			break;
+
+		case INS_LDA_INDY:
+			LDA_INDY(cpu, ram);
+			break;
+
+		case INS_LDX_IMM:
+			LDX_IMM(cpu, ram);
+			break;
+
+		case INS_LDX_ZP:
+			LDX_ZP(cpu, ram);
+			break;
+
+		case INS_LDX_ZPY:
+			LDX_ZPY(cpu, ram);
+			break;
+
+		case INS_LDX_ABS:
+			LDX_ABS(cpu, ram);
+			break;
+
+		case INS_LDX_ABSY:
+			LDX_ABSY(cpu, ram);
+			break;
+
+		case INS_LDY_IMM:
+			LDY_IMM(cpu, ram);
+			break;
+
+		case INS_LDY_ZP:
+			LDY_ZP(cpu, ram);
+			break;
+
+		case INS_LDY_ZPX:
+			LDY_ZPX(cpu, ram);
+			break;
+
+		case INS_LDY_ABS:
+			LDY_ABS(cpu, ram);
+			break;
+
+		case INS_LDY_ABSX:
+			LDY_ABSX(cpu, ram);
+			break;
+
 		case INS_AND_IMM:
 			AND_IMM(cpu, ram);
-		break;
+			break;
 
 		case INS_JSR:
 			JSR(cpu, ram);
-		break;
+			break;
 
 		case INS_RTS:
 			RTS(cpu, ram);
-		break;
-		
+			break;
+
 		case INS_ADC_IMM:
 			ADC_IMM(cpu, ram);
 			break;
 
+		case INS_ADC_ZP:
+			ADC_ZP(cpu, ram);
+			break;
+
+		case INS_ADC_ZPX:
+			ADC_ZPX(cpu, ram);
+			break;
+
+		case INS_ADC_ABS:
+			ADC_ABS(cpu, ram);
+			break;
+
+		case INS_ADC_ABSX:
+			ADC_ABSX(cpu, ram);
+			break;
+
+		case INS_ADC_ABSY:
+			ADC_ABSY(cpu, ram);
+			break;
+
+		case INS_ADC_INDX:
+			ADC_INDX(cpu, ram);
+			break;
+
+		case INS_INC_ZP:
+			INC_ZP(cpu, ram);
+			break;
+
+		case INS_INC_ZPX:
+			INC_ZPX(cpu, ram);
+			break;
+
+		case INS_INC_ABS:
+			INC_ABS(cpu, ram);
+			break;
+
+		case INS_INC_ABSX:
+			INC_ABSX(cpu, ram);
+			break;
+
+		case INS_CLC:
+			CLC(cpu);
+			break;
+
+		case INS_SEC:
+			SEC(cpu);
+			break;
+
+		case INS_CLI:
+			CLI(cpu);
+			break;
+
+		case INS_SEI:
+			SEI(cpu);
+			break;
+
+		case INS_CLV:
+			CLV(cpu);
+			break;
+
+		case INS_CLD:
+			CLD(cpu);
+			break;
+
+		case INS_SED:
+			SED(cpu);
+			break;
+
+		case INS_BIT_ZP:
+			BIT_ZP(cpu, ram);
+			break;
+
+		case INS_BIT_ABS:
+			BIT_ABS(cpu, ram);
+			break;
+
+		case INS_AND_IMM:
+			AND_IMM(cpu, ram);
+			break;
+
+		case INS_AND_ZP:
+			AND_ZP(cpu, ram);
+			break;
+
+		case INS_AND_ZPX:
+			AND_ZPX(cpu, ram);
+			break;
+
+		case INS_AND_ABS:
+			AND_ABS(cpu, ram);
+			break;
+
+		case INS_AND_ABSX:
+			AND_ABSX(cpu, ram);
+			break;
+
+		case INS_AND_ABSY:
+			AND_ABSY(cpu, ram);
+			break;
+
+		case INS_AND_INDX:
+			AND_INDX(cpu, ram);
+			break;
+
+		case INS_AND_INDY:
+			AND_INDY(cpu, ram);
+			break;
+
+		case INS_JMP_ABS:
+			JMP_ABS(cpu, ram);
+			break;
+
+		case INS_JMP_IND:
+			JMP_IND(cpu, ram);
+			break;
+
+		case INS_ASL_A:
+			ASL_A(cpu);
+			break;
+
+		case INS_ASL_ZP:
+			ASL_ZP(cpu, ram);
+			break;
+
+		case INS_ASL_ZPX:
+			ASL_ZPX(cpu, ram);
+			break;
+
+		case INS_ASL_ABS:
+			ASL_ABS(cpu, ram);
+			break;
+
+		case INS_ASL_ABSX:
+			ASL_ABSX(cpu, ram);
+			break;
+
 		case INS_KIL:
 			process_complete = true;
-		break;
-	
+			break;
+
 		default:
 			printf("Invalid instruction: 0x%x\n", opcode);
 			exit(1);
@@ -787,26 +960,26 @@ void load_into_memory(ram_t *ram, const char *fname)
 		fprintf(stderr, "File not found %s\n", fname);
 		exit(1);
 	}
-	
+
 	struct stat stat_buf;
 	if(fstat(fd, &stat_buf) == -1)
 	{
 		perror("stat");
 		exit(2);
 	}
-	
+
 	size_t LEN = stat_buf.st_size; // length of file in bytes
 	byte buffer[LEN];
 	memset(buffer, 0, sizeof buffer);
 
-	if(read(fd, buffer, LEN) < 0)
+	if(read(fd, buffer, LEN) != LEN)
 	{
-		perror("read");
+		fprintf(stderr, "Could not full buffer %s\n", fname);
 		exit(3);
 	}
-	
+
 	word bidx = 0;
-	for(word i = PROG_START; i < PROG_START + LEN; i++)
+	for(word i = PROG_BEGIN; i < PROG_BEGIN + LEN; i++)
 		ram->data[i] = buffer[bidx++];
 
 	close(fd);
@@ -815,12 +988,11 @@ void load_into_memory(ram_t *ram, const char *fname)
 int main(void)
 {
 	ram_t ram;
-	ram_init(&ram);
 	cpu6502_t cpu;
+
+	ram_init(&ram);
 	cpu_reset(&cpu, &ram);
-
-	load_into_memory(&ram, "./src/small.ef");
-
+	load_into_memory(&ram, "./src/output.ef");
 	cpu_execute(&cpu, &ram);
 	printf("A: %d\n", cpu.A);
 	printf("Number of cycles: %d\n", cycles);
