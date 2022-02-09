@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 
-from os import path
+import os
 import sys
 from collections import namedtuple
 from bytes_op import btol, ltob
-
-# Every .ef file will begin with this magic number as first, second and third byte
-MAGIC_NUMBER = 0x076566
+from make_ef import make_ef
 
 InstrInfo = namedtuple("InstrInfo", "opcode")
 
@@ -171,22 +169,29 @@ def assemble(stream):
 	instruction_lines = list(map(lambda line: line.strip(), stream.split("\n")))
 	pure_lines = [line for line in instruction_lines if line != ""]
 
-	output_file = open("../output.ef", "wb")
+	output_file_ir = open("out.ir65", "wb")
 
 	line_no = 1
+	print("[Generating IR65 file] ", end="")
 	for line in pure_lines:
 		parsed_line = parse_instr_line(line)
 		if parsed_line == ParseError.ERR_OK:
 			line_no += 1
 			continue
 		if parsed_line == ParseError.ERR_SYN:
+			print("failed")
 			print(f"Syntax error at line {line_no}")
 			sys.exit(-1)
 		else:
 			for byte in parsed_line:
-				output_file.write(byte.to_bytes(1, sys.byteorder, signed=False))
+				# making ir file
+				output_file_ir.write(byte.to_bytes(1, sys.byteorder, signed=False))
 		line_no += 1
-	print(user_defined_directives)
+	print("done")
+	
+	# making executable
+	# make_ef("./out.ir65", "out")
+
 
 def print_as_fatal_error(error):
 	print(f"assembler: fatal error: {error}")
@@ -203,7 +208,7 @@ if __name__ == "__main__":
 	if len(sys.argv) < 2:
 		print_as_fatal_error("no input files")
 
-	filename, fileext = path.splitext(sys.argv[1])
+	filename, fileext = os.path.splitext(sys.argv[1])
 	if fileext != FILE_EXTENSION:
 		print_as_fatal_error(f"{filename}{fileext}: file format not recognized")
 

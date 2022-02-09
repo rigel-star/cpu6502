@@ -982,9 +982,12 @@ void load_into_memory(ram_t *ram, const char *fname)
 		fprintf(stderr, "Invalid boot drive\n");
 		exit(3);
 	}
-	
-	byte *mapped_bootable = mmap(NULL, 128, PROT_READ, MAP_SHARED, fd, 0);
-	word magic_number = (*(mapped_bootable + 126) << 8) | *(mapped_bootable + 127);
+
+	const size_t LEN = stat_buf.st_size; // length of file in bytes
+	byte *mapped_bootable = mmap(NULL, LEN, PROT_READ, MAP_SHARED, fd, 0);
+
+	word prog_size;
+	word magic_number = (*(mapped_bootable) << 8) | *(mapped_bootable + 1);
 
 #define MAGIC_NUMBER (word) (('o' << 8) | 'k')
 	if(magic_number != MAGIC_NUMBER)
@@ -994,9 +997,6 @@ void load_into_memory(ram_t *ram, const char *fname)
 	}
 
 	fprintf(stdout, "OK: %s\n", (char *) mapped_bootable);
-
-#define LEN 0x80
-
 	/*
 	const size_t LEN = stat_buf.st_size; // length of file in bytes
 	byte buffer[LEN];
