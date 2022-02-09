@@ -1,3 +1,4 @@
+#include <sys/mman.h>
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -26,9 +27,9 @@ static void dump_cpu_flags(cpu6502_t *cpu)
 static void dump_cpu_regs(cpu6502_t *cpu)
 {
 	puts("\nRegisters: ");
-	printf("A: \t0x%x\n", cpu->A);
-	printf("X: \t0x%x\n", cpu->X);
-	printf("Y: \t0x%x\n", cpu->Y);
+	printf("A:	0x%x\n", cpu->A);
+	printf("X:	0x%x\n", cpu->X);
+	printf("Y:	0x%x\n", cpu->Y);
 	printf("PC: 	0x%x\n", cpu->PC);
 	printf("SP: 	0x%x\n", cpu->SP);
 }
@@ -976,16 +977,39 @@ void load_into_memory(ram_t *ram, const char *fname)
 		exit(2);
 	}
 
+	if(stat_buf.st_size != 128)
+	{
+		fprintf(stderr, "Invalid boot drive\n");
+		exit(3);
+	}
+	
+	byte *mapped_bootable = mmap(NULL, 128, PROT_READ, MAP_SHARED, fd, 0);
+	word magic_number = (*(mapped_bootable + 126) << 8) | *(mapped_bootable + 127);
+
+#define MAGIC_NUMBER (word) (('o' << 8) | 'k')
+	if(magic_number != MAGIC_NUMBER)
+	{
+		fprintf(stderr, "Invalid boot drive\n");
+		exit(4);
+	}
+
+	fprintf(stdout, "OK: %s\n", (char *) mapped_bootable);
+
+#define LEN 0x80
+
+	/*
 	const size_t LEN = stat_buf.st_size; // length of file in bytes
 	byte buffer[LEN];
 	memset(buffer, 0, sizeof buffer);
 
 	if(read(fd, buffer, LEN) != LEN)
 	{
-		fprintf(stderr, "Could not full buffer %s\n", fname);
+		fprintf(stderr, "Could not read full buffer %s\n", fname);
 		exit(3);
 	}
+	*/
 
+	// putting jump instruction manually for debugging purpose
 	word begin = PROG_BEGIN;
 	ram->data[begin++] = INS_JMP_ABS;
 	ram->data[begin++] = 0x00;
@@ -994,9 +1018,12 @@ void load_into_memory(ram_t *ram, const char *fname)
 #define EXEC_START 0x4000
 
 	word bidx = 0;
-	for(word i = EXEC_START; i < EXEC_START + LEN; i++)
-		ram->data[i] = buffer[bidx++];
-
+	word i = EXEC_START;
+	for(; i < EXEC_START + LEN; i++)
+		ram->data[i] = mapped_bootable[bidx++];
+	
+	// putting exit instruction manually for debugging purpose
+	// ram->data[i] = INS_KIL;
 	close(fd);
 }
 
@@ -1005,7 +1032,7 @@ int main(void)
 	ram_t ram;
 	cpu6502_t cpu;
 
-	ram_init(&ram);
+	// ram_init(&ram);
 	cpu_reset(&cpu, &ram);
 	load_into_memory(&ram, "./src/output.ef");
 
@@ -1020,9 +1047,8 @@ int main(void)
 	*/
 
 	cpu_execute(&cpu, &ram);
-	printf("A: %d\n", cpu.A);
-
 	dump_cpu_flags(&cpu);
 	dump_cpu_regs(&cpu);
+	ram_free(&ram);
 	return 0;
 }

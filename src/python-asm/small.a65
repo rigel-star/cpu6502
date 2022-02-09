@@ -1,5 +1,5 @@
 [.org 0x4000]
 [.bit 16]
 lda #2    ; load 2 into A
-adc #1      ; add 5 with A
-kil         ; kill program
+adc #5      ; add 5 with A
+kil

@@ -117,6 +117,33 @@ typedef enum
 	INS_ADC_ABSY	= 0x79, // Add value from given absolute address + Y
 	INS_ADC_INDX	= 0x61, // Add value from given indirect address + X
 	INS_ADC_INDY	= 0x71, // Add value from given indirect address + Y
+	INS_STA_ZP		= 0x85, // Store A at zero page address
+	INS_STA_ZPX		= 0x95, // Store A at zp + X
+	INS_STA_ABS		= 0x8D, // store A at absolute address
+	INS_STA_ABSX	= 0x9D, // Store A at absolute address + X
+	INS_STA_ABSY	= 0x99, // Store A at absolute address + Y
+	INS_STA_INDX	= 0x81, // Store A at indirect address + X
+	INS_STA_INDY	= 0x91, // Store A at indirect address + Y
+	INS_STX_ZP		= 0x86, // Store X at zp address
+	INS_STX_ZPY		= 0x96, // Store X at zp address + Y
+	INS_STX_ABS		= 0x8E, // Store X at absolute address
+	INS_STY_ZP		= 0x84, // Store Y at zp address
+	INS_STY_ZPX		= 0x94, // Store Y at zp address + X
+	INS_STY_ABS		= 0x8C, // Store Y at absolute address
+	INS_TXS			= 0x9A, // Transfer X to Stack ptr
+	INS_TSX			= 0xBA, // Transfer Stack ptr to X
+	INS_PHA			= 0x48, // Push accumulator
+	INS_PLA			= 0x68, // Pull accumulator
+	INS_PHP			= 0x08, // Push processor status
+	INS_PLP			= 0x28, // Pull processor status
+	INS_SBC_IMM		= 0xE9, // Subtract A immediate 
+	INS_SBC_ZP		= 0xE5, // Subtract A from zero page address value
+	INS_SBC_ZPX		= 0xF5, // Subtract A from zp address + X value
+	INS_SBC_ABS		= 0xED, // Subtract A from absolute address value
+	INS_SBC_ABSX	= 0xFD, // Subtract A from absolute address + X value
+	INS_SBC_ABSY	= 0xF9, // Subtract A from absolute address + Y value
+	INS_SBC_INDX	= 0xE1, // Subtract A from indirect address + X value
+	INS_SBC_INDY	= 0xF1, // Subtract A from indirect address + Y value
 } ins;
 
 
