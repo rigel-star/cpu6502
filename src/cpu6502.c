@@ -175,12 +175,10 @@ word cpu_pop_stack_word(cpu6502_t *cpu, ram_t *ram)
  * */
 
 // Changing status bits related to ADC operation
-
-//MAKE THIS FUNCTION INLINE
-static void adc_set_status(cpu6502_t *cpu, word res)
+static inline void adc_set_status(cpu6502_t *cpu, word res)
 {
 	cpu->status |= Z; // zero
-	cpu->status |= (cpu->A & N); // negative
+	cpu->status |= (res & N); // negative
 	cpu->status |= ((res > 255 || res < 0) ? C : 0); // carry
 	cpu->status |= ((res > 255 || res < 0) ? V : 0); // overflow
 }
@@ -1021,7 +1019,7 @@ void load_into_memory(ram_t *ram, const char *fname)
 	word i = EXEC_START;
 	for(; i < EXEC_START + LEN; i++)
 		ram->data[i] = mapped_bootable[bidx++];
-	
+
 	// putting exit instruction manually for debugging purpose
 	// ram->data[i] = INS_KIL;
 	close(fd);
