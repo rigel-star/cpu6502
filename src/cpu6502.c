@@ -1027,14 +1027,20 @@ void load_into_memory(ram_t *ram, const char *fname)
 	close(fd);
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
+	if(argc < 2)
+	{
+		fprintf(stderr, "Insufficient arguments\n");
+		exit(1);
+	}
+
 	ram_t ram;
 	cpu6502_t cpu;
 
 	// ram_init(&ram);
 	cpu_reset(&cpu, &ram);
-	load_into_memory(&ram, "./src/output.ef");
+	load_into_memory(&ram, argv[1]);
 
 	/*
 	ram.data[PROG_BEGIN + 1] = 0x00;
