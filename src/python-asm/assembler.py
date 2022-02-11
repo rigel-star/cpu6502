@@ -6,6 +6,12 @@ from collections import namedtuple
 from bytes_op import btol, ltob
 from make_ef import make_ef
 
+
+class Colors:
+	RED = "\033[91m"
+	END = "\033[0m"
+
+
 InstrInfo = namedtuple("InstrInfo", "opcode")
 
 INS_LOOKUP_TABLE = {
@@ -49,14 +55,15 @@ class ParseError(Enum):
 	ERR_OK = 0x0
 	ERR_SYN = 0x1
 
+
 def strip_comments(line):
 	comment_index = line.find(";")
 	if comment_index >= 0:
 		line = line[:comment_index]
 	return line.strip()
 
-def parse_directives(line):
-	global errorno
+
+def parse_directive(line):
 	# directive syntax : [.dir_name value]
 	global user_defined_directives
 	splited_str = line.split(" ", 1)
@@ -69,6 +76,28 @@ def parse_directives(line):
 	value = splited_str[1][:end_index]
 	user_defined_directives[name] = value
 	return ParseError.ERR_OK
+
+
+# Preprocessing stuff. Will extract directives and remove comments from the source file.
+def preprocess(source_lines):
+	processed_source = []
+	line_no = 1
+	for line in source_lines:
+		noc_line = strip_comments(line) # remove comments if any
+		if noc_line.startswith("["):
+			err = parse_directive(line)
+			if err == ParseError.ERR_SYN:
+				print("Preprocess: syntax error at line", line_no)
+				sys.exit(-1)
+		elif line == "":
+			continue
+		else:
+			line_no += 1
+			if line == "":
+				continue
+			else:
+				processed_source.append(noc_line)
+	return processed_source
 
 
 def parse_addr_mode(line):
@@ -106,39 +135,40 @@ def parse_addr_mode(line):
 			return "abs"
 	return ParseError.ERR_SYN
 
+
 def parse_operand_as_bytearr(operand, mode):
-	if mode == "imm":
-		return [int(operand[1:])]
-	elif mode == "zp":
-		return [int(operand[1:])]
-	elif mode == "zpx" or mode == "zpy":
-		comma_index = operand.find(",")
-		return [int(operand[1:comma_index])]
-	elif mode == "ind":
-		closing_brace_index = operand.find("]")
-		return [int(operand[1:closing_brace_index])]
-	elif mode == "indx" or mode == "indy":
-		comma_index = operand.find(",")
-		return [int(operand[1:comma_index])]
-	elif mode == "abs":
-		abs_addr = int(operand, 0)
-		high = (abs_addr >> 8) & 0xFF
-		low = (abs_addr) & 0xFF
-		if sys.byteorder == "big":
-			return [high, low]
-		else:
-			return [low, high]
-	elif mode == "absx" or mode == "absy":
-		comma_index = operand.find(",")
-		return [int(operand[:comma_index])]
-	else:
+	try:
+		if mode == "imm":
+			return [int(operand[1:])]
+		elif mode == "zp":
+			return [int(operand[1:])]
+		elif mode == "zpx" or mode == "zpy":
+			comma_index = operand.find(",")
+			return [int(operand[1:comma_index])]
+		elif mode == "ind":
+			closing_brace_index = operand.find("]")
+			return [int(operand[1:closing_brace_index])]
+		elif mode == "indx" or mode == "indy":
+			comma_index = operand.find(",")
+			return [int(operand[1:comma_index])]
+		elif mode == "abs":
+			abs_addr = int(operand, 0)
+			high = (abs_addr >> 8) & 0xFF
+			low = (abs_addr) & 0xFF
+			if sys.byteorder == "big":
+				return [high, low]
+			else:
+				return [low, high]
+		elif mode == "absx" or mode == "absy":
+			comma_index = operand.find(",")
+			return [int(operand[:comma_index])]
+	except ValueError:
 		return ParseError.ERR_SYN
+
 
 # Assemble single line
 def parse_instr_line(instruction_line):
 	pure_instr = strip_comments(instruction_line)
-	if pure_instr.startswith("["):
-		return parse_directives(pure_instr)
 
 	tokens = pure_instr.split(" ", 1)
 	mode = parse_addr_mode(pure_instr)
@@ -158,45 +188,53 @@ def parse_instr_line(instruction_line):
 
 	operands = tokens[1]
 	operands_as_bytes = parse_operand_as_bytearr(operands, mode)
-	if not operands_as_bytes:
+	if not operands_as_bytes or operands_as_bytes == ParseError.ERR_SYN:
 		return ParseError.ERR_SYN
 
 	return [opcode] + [byte for byte in operands_as_bytes]
 
 
 # Assembling starts here
-def assemble(stream):
-	instruction_lines = list(map(lambda line: line.strip(), stream.split("\n")))
-	pure_lines = [line for line in instruction_lines if line != ""]
+def assemble(stream, args):
+	pure_lines =list(filter(lambda line: line != "", 
+				list(map(lambda line: line.strip(), stream.split("\n")))))
 
-	output_file_ir = open("out.ir65", "wb")
+	output_file_ir = open(args.output + ".ir65", "wb")
 
-	line_no = 1
+	# writing magic number 
+	output_file_ir.write(ord('E').to_bytes(1, sys.byteorder, signed=False))
+	output_file_ir.write(ord('F').to_bytes(1, sys.byteorder, signed=False))
+
+	preprocessed = preprocess(pure_lines)
+
 	print("[Generating IR65 file] ", end="")
-	for line in pure_lines:
+	for line in preprocessed:
 		parsed_line = parse_instr_line(line)
 		if parsed_line == ParseError.ERR_OK:
-			line_no += 1
 			continue
 		if parsed_line == ParseError.ERR_SYN:
 			print("failed")
-			print(f"Syntax error at line {line_no}")
+			print("Syntax error " + Colors.RED + line + Colors.END)
 			sys.exit(-1)
 		else:
 			for byte in parsed_line:
 				# making ir file
 				output_file_ir.write(byte.to_bytes(1, sys.byteorder, signed=False))
-		line_no += 1
 	print("done")
-	
-	# making executable
-	# make_ef("./out.ir65", "out")
 
 
 def print_as_fatal_error(error):
-	print(f"assembler: fatal error: {error}")
+	print("assembler: " + Colors.RED + "fatal error: " + Colors.END + error)
 	print("assembling terminated.")
 	sys.exit(1)
+
+
+import argparse
+def parse_args():
+	parser = argparse.ArgumentParser(description="6502 Assembler")
+	parser.add_argument('-o', '--output', default='out', type=str, help='Output file name. Defaults to out')
+	parser.add_argument('filename', help="File to assemble", type=str)
+	return parser.parse_args()
 
 
 '''
@@ -205,13 +243,12 @@ File extension of input source program
 FILE_EXTENSION = ".a65"
 
 if __name__ == "__main__":
-	if len(sys.argv) < 2:
-		print_as_fatal_error("no input files")
+	args = parse_args()
 
-	filename, fileext = os.path.splitext(sys.argv[1])
+	filename, fileext = os.path.splitext(args.filename)
 	if fileext != FILE_EXTENSION:
 		print_as_fatal_error(f"{filename}{fileext}: file format not recognized")
 
 	with open(filename + FILE_EXTENSION, "r") as prog_file:
 		program = prog_file.read()
-		assemble(program)
+		assemble(program, args)

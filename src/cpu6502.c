@@ -975,53 +975,37 @@ void load_into_memory(ram_t *ram, const char *fname)
 		exit(2);
 	}
 
-	if(stat_buf.st_size != 128)
-	{
-		fprintf(stderr, "Invalid boot drive\n");
-		exit(3);
-	}
-
 	const size_t LEN = stat_buf.st_size; // length of file in bytes
 	byte *mapped_bootable = mmap(NULL, LEN, PROT_READ, MAP_SHARED, fd, 0);
 
-	word prog_size;
 	word magic_number = (*(mapped_bootable) << 8) | *(mapped_bootable + 1);
 
-#define MAGIC_NUMBER (word) (('o' << 8) | 'k')
+#define MAGIC_NUMBER (word) (('E' << 8) | 'F')
 	if(magic_number != MAGIC_NUMBER)
 	{
-		fprintf(stderr, "Invalid boot drive\n");
+		fprintf(stderr, "Invalid EF file\n");
 		exit(4);
 	}
 
 	fprintf(stdout, "OK: %s\n", (char *) mapped_bootable);
-	/*
-	const size_t LEN = stat_buf.st_size; // length of file in bytes
-	byte buffer[LEN];
-	memset(buffer, 0, sizeof buffer);
-
-	if(read(fd, buffer, LEN) != LEN)
-	{
-		fprintf(stderr, "Could not read full buffer %s\n", fname);
-		exit(3);
-	}
-	*/
-
+	
 	// putting jump instruction manually for debugging purpose
 	word begin = PROG_BEGIN;
 	ram->data[begin++] = INS_JMP_ABS;
 	ram->data[begin++] = 0x00;
-	ram->data[begin] = 0x40;
+	ram->data[begin] = 0x10;
 
-#define EXEC_START 0x4000
+#define EXEC_START 0x1000
 
 	word bidx = 0;
 	word i = EXEC_START;
+	mapped_bootable += 2;
 	for(; i < EXEC_START + LEN; i++)
 		ram->data[i] = mapped_bootable[bidx++];
 
 	// putting exit instruction manually for debugging purpose
 	// ram->data[i] = INS_KIL;
+	munmap(mapped_bootable, LEN);
 	close(fd);
 }
 

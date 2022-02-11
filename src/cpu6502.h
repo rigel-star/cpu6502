@@ -358,14 +358,6 @@ void LSR_ABS(cpu6502_t *cpu, ram_t *ram);
 void LSR_ABSX(cpu6502_t *cpu, ram_t *ram);
 
 
-/* NOP */
-void NOP(cpu6502_t *cpu, ram_t *ram);
-
-
-/* RTI */
-void RTI(cpu6502_t *cpu, ram_t *ram);
-
-
 /* STA */
 void STA_ZP(cpu6502_t *cpu, ram_t *ram);
 void STA_ZPX(cpu6502_t *cpu, ram_t *ram);
