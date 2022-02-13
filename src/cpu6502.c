@@ -10,6 +10,7 @@
 #include <fcntl.h>
 
 #include "cpu6502.h"
+#include "ef.h"
 
 static void dump_cpu_flags(cpu6502_t *cpu)
 {
@@ -952,6 +953,7 @@ void cpu_execute(cpu6502_t *cpu, ram_t *ram)
 
 		default:
 			printf("Invalid instruction: 0x%x\n", opcode);
+			ram_free(ram);
 			exit(1);
 			break;
 		}
@@ -960,34 +962,20 @@ void cpu_execute(cpu6502_t *cpu, ram_t *ram)
 
 void load_into_memory(ram_t *ram, const char *fname)
 {
-	// (void) ram;
-	const int32_t fd = open(fname, O_RDONLY);
-	if(fd < 0)
+	ef_file hdr = read_ef(fname);
+	const word MN = (hdr.ef_magic[0] << 8) | hdr.ef_magic[1];
+
+#define MAGIC_NUMBER (word) (('E' << 8) | 'F')
+	if(MN != MAGIC_NUMBER)
 	{
-		fprintf(stderr, "File not found %s\n", fname);
+		fprintf(stderr, "Invalid EF file\n");
 		exit(1);
 	}
 
-	struct stat stat_buf;
-	if(fstat(fd, &stat_buf) == -1)
-	{
-		perror("stat");
-		exit(2);
-	}
-
-	const size_t LEN = stat_buf.st_size; // length of file in bytes
-	byte *mapped_bootable = mmap(NULL, LEN, PROT_READ, MAP_SHARED, fd, 0);
-
-	word magic_number = (*(mapped_bootable) << 8) | *(mapped_bootable + 1);
-
-#define MAGIC_NUMBER (word) (('E' << 8) | 'F')
-	if(magic_number != MAGIC_NUMBER)
-	{
-		fprintf(stderr, "Invalid EF file\n");
-		exit(4);
-	}
-
-	fprintf(stdout, "OK: %s\n", (char *) mapped_bootable);
+	printf("EF file info:\n");
+	printf("Magic: %c %c\n", hdr.ef_magic[0], hdr.ef_magic[1]);
+	printf("Size: %d\n", hdr.ef_size);
+	printf("_start:\n \t%s\n", hdr.ef_data);
 	
 	// putting jump instruction manually for debugging purpose
 	word begin = PROG_BEGIN;
@@ -999,14 +987,14 @@ void load_into_memory(ram_t *ram, const char *fname)
 
 	word bidx = 0;
 	word i = EXEC_START;
-	mapped_bootable += 2;
-	for(; i < EXEC_START + LEN; i++)
-		ram->data[i] = mapped_bootable[bidx++];
+	for(; i < EXEC_START + hdr.ef_size; i++)
+	{
+		ram->data[i] = hdr.ef_data[bidx++];
+	}
 
 	// putting exit instruction manually for debugging purpose
 	// ram->data[i] = INS_KIL;
-	munmap(mapped_bootable, LEN);
-	close(fd);
+	free_ef(&hdr);
 }
 
 int main(int argc, char **argv)
@@ -1020,20 +1008,9 @@ int main(int argc, char **argv)
 	ram_t ram;
 	cpu6502_t cpu;
 
-	// ram_init(&ram);
+	ram_init(&ram);
 	cpu_reset(&cpu, &ram);
 	load_into_memory(&ram, argv[1]);
-
-	/*
-	ram.data[PROG_BEGIN + 1] = 0x00;
-	ram.data[PROG_BEGIN + 2] = 0x40;
-	ram.data[0x4000] = INS_LDA_IMM;
-	ram.data[0x4001] = 0x2;
-	ram.data[0x4002] = INS_ADC_IMM;
-	ram.data[0x4003] = 0x5;
-	ram.data[0x4004] = INS_KIL;
-	*/
-
 	cpu_execute(&cpu, &ram);
 	dump_cpu_flags(&cpu);
 	dump_cpu_regs(&cpu);

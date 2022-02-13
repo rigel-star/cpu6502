@@ -1,0 +1,19 @@
+TODO
+------------------
+DONE 1) Put magic number in a ef file
+DONE 2) File name translated from
+DONE 3) Creation date
+DONE 4) Header struct
+5) Instructions entry in assembler
+6) Two pass assembler
+	First pass
+	---------
+	i) Create symbol table
+	ii) Expand macros
+	iii) Eval constant expressions
+
+	Second pass
+	-----------
+	i) Final generation of code
+	ii) Creation of list file
+	iii) Create object file

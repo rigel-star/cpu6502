@@ -4,8 +4,9 @@ import os
 import sys
 from collections import namedtuple
 from bytes_op import btol, ltob
-from make_ef import make_ef
 
+
+BYTEORD = sys.byteorder
 
 class Colors:
 	RED = "\033[91m"
@@ -89,8 +90,6 @@ def preprocess(source_lines):
 			if err == ParseError.ERR_SYN:
 				print("Preprocess: syntax error at line", line_no)
 				sys.exit(-1)
-		elif line == "":
-			continue
 		else:
 			line_no += 1
 			if line == "":
@@ -205,6 +204,9 @@ def assemble(stream, args):
 	output_file_ir.write(ord('E').to_bytes(1, sys.byteorder, signed=False))
 	output_file_ir.write(ord('F').to_bytes(1, sys.byteorder, signed=False))
 
+	# size of output file
+	output_array = []
+
 	preprocessed = preprocess(pure_lines)
 
 	print("[Generating IR65 file] ", end="")
@@ -219,7 +221,20 @@ def assemble(stream, args):
 		else:
 			for byte in parsed_line:
 				# making ir file
-				output_file_ir.write(byte.to_bytes(1, sys.byteorder, signed=False))
+				output_array.append(byte)
+
+	output_size = len(output_array)
+	size_high = ((output_size >> 8) & 0xFF).to_bytes(1, BYTEORD, signed=False)
+	size_low = (output_size  & 0xFF).to_bytes(1, BYTEORD, signed=False)
+	if BYTEORD == "big":
+		output_file_ir.write(size_high)
+		output_file_ir.write(size_low)
+	elif BYTEORD == "little":
+		output_file_ir.write(size_low)
+		output_file_ir.write(size_high)
+
+	for byte in output_array:
+		output_file_ir.write(byte.to_bytes(1, sys.byteorder, signed=False))
 	print("done")
 
 
