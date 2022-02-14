@@ -388,6 +388,7 @@ void PLA(cpu6502_t *cpu, ram_t *ram);
 void PHP(cpu6502_t *cpu, ram_t *ram);
 void PLP(cpu6502_t *cpu, ram_t *ram);
 
+// TODO up from here ^^^^^^^^^^^^^^^^^^^^^^^
 
 /* SBC */
 void SBC_IMM(cpu6502_t *cpu, ram_t *ram);
@@ -398,9 +399,6 @@ void SBC_ABSX(cpu6502_t *cpu, ram_t *ram);
 void SBC_ABSY(cpu6502_t *cpu, ram_t *ram);
 void SBC_INDX(cpu6502_t *cpu, ram_t *ram);
 void SBC_INDY(cpu6502_t *cpu, ram_t *ram);
-
-
-// TODO up from here ^^^^^^^^^^^^^^^^^^^^^^^
 
 
 /* ADC */

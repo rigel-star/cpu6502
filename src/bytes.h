@@ -27,7 +27,7 @@ inline word little_endian_w(word w)
 {
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 	return swap_bytes_w(w);
-#elif __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__ 
+#elif __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 	return w;
 #else
 	#error endianess not supported

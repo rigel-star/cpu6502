@@ -1,7 +1,8 @@
 SRC = $(wildcard ./src/*.c)
 
 OUT=main
-CFLAGS=-pedantic -O0 -ggdb -Wall -Wunused-parameter 
+WFLAGS = -Wunused-parameter -Wtautological-compare
+CFLAGS=-pedantic -O0 -ggdb $(WFLAGS)
 
 all: $(OUT)
 

@@ -175,21 +175,20 @@ word cpu_pop_stack_word(cpu6502_t *cpu, ram_t *ram)
  *
  * */
 
-// Changing status bits related to ADC operation
-static inline void adc_set_status(cpu6502_t *cpu, word res)
+static inline void perform_adc(cpu6502_t *cpu, byte fetched)
 {
-	cpu->status |= Z; // zero
-	cpu->status |= (res & N); // negative
-	cpu->status |= ((res > 255 || res < 0) ? C : 0); // carry
-	cpu->status |= ((res > 255 || res < 0) ? V : 0); // overflow
+	word tmp = fetched + cpu->A + (cpu->status & C ? 1 : 0);
+	cpu->status |= (tmp & 0x00FF) == 0 ? Z : 0; // zero
+	cpu->status |= (tmp & 0x0080) == 1 ? N : 0; // negative
+	cpu->status |= (tmp > 0x00FF) == 1 ? C : 0;
+	cpu->status |= ((~(cpu->A) ^ fetched) & (cpu->A ^ tmp) & 0x0080) ? V : 0;
+	cpu->A = (byte) (tmp & 0x00FF);
 }
 
 void ADC_IMM(cpu6502_t *cpu, ram_t *ram)
 {
 	byte data = cpu_fetch_byte(cpu, ram);
-	word ans = cpu->A + data + ((cpu->status & C) ? 1 : 0); // if carry flag is set, add 1
-	cpu->A = (ans & 0xFF);
-	adc_set_status(cpu, ans);
+	perform_adc(cpu, data);
 }
 
 
@@ -205,9 +204,7 @@ static void perform_adc_zp(cpu6502_t *cpu, ram_t *ram, off_t addr_off)
 {
 	byte zp_addr = cpu_fetch_byte(cpu, ram) + addr_off;
 	byte data = cpu_read_byte(ram, zp_addr);
-	word ans = cpu->A + data + ((cpu->status & C) ? 1 : 0); // if carry flag is set, add 1
-	cpu->A = (ans & 0xFF);
-	adc_set_status(cpu, ans);
+	perform_adc(cpu, data);
 }
 
 void ADC_ZP(cpu6502_t *cpu, ram_t *ram)
@@ -229,13 +226,11 @@ void ADC_ZPX(cpu6502_t *cpu, ram_t *ram)
  *	ADC abs, Y	79
  *
  * */
-static void perform_adc_abs(cpu6502_t *cpu, ram_t *ram, off_t addr_off)
+static inline void perform_adc_abs(cpu6502_t *cpu, ram_t *ram, off_t addr_off)
 {
 	word abs_addr = cpu_fetch_word(cpu, ram) + addr_off;
 	byte data = cpu_read_byte(ram, abs_addr);
-	word ans = cpu->A + data + ((cpu->status & C) ? 1 : 0); // if carry flag is set, add 1
-	cpu->A = (ans & 0xFF);
-	adc_set_status(cpu, ans);
+	perform_adc(cpu, data);
 }
 
 void ADC_ABS(cpu6502_t *cpu, ram_t *ram)
@@ -262,14 +257,12 @@ void ADC_ABSY(cpu6502_t *cpu, ram_t *ram)
  *	ADC (ind, y)	71
  *
  * */
-static void perform_adc_ind(cpu6502_t *cpu, ram_t *ram, off_t addr_off)
+static inline void perform_adc_ind(cpu6502_t *cpu, ram_t *ram, off_t addr_off)
 {
 	word abs_addr = cpu_fetch_word(cpu, ram);
 	word ind_addr = cpu_read_word(ram, abs_addr) + addr_off;
 	byte data = cpu_read_byte(ram, ind_addr);
-	word ans = cpu->A + data + ((cpu->status & C) ? 1 : 0); // if carry flag is set, add 1
-	cpu->A = (ans & 0xFF);
-	adc_set_status(cpu, ans);
+	perform_adc(cpu, data);
 }
 
 void ADC_INDX(cpu6502_t *cpu, ram_t *ram)
@@ -291,7 +284,7 @@ void ADC_INDY(cpu6502_t *cpu, ram_t *ram)
 // Changing status bits related to ASL operation
 static inline void inc_set_status(cpu6502_t *cpu)
 {
-	CPU_SET_FLAGS(cpu, Z | (cpu->A & N));
+	CPU_SET_FLAGS(cpu, Z | (cpu->A & N ? N : 0));
 }
 
 // increment memory at zero page memory location
@@ -663,9 +656,7 @@ void LDY_ZP(cpu6502_t *cpu, ram_t *ram)
 
 void LDY_ZPX(cpu6502_t *cpu, ram_t *ram)
 {
-	byte imm_zp_addr = cpu_fetch_byte(cpu, ram);
-	imm_zp_addr += cpu->X;
-	cycles++; // ^ for addition
+	byte imm_zp_addr = cpu_fetch_byte(cpu, ram) + cpu->X;
 	cpu->Y = cpu_read_byte(ram, imm_zp_addr);
 	lda_set_status(cpu);
 }
@@ -681,7 +672,6 @@ void LDY_ABSX(cpu6502_t *cpu, ram_t *ram)
 {
 	word addr = cpu_fetch_word(cpu, ram) + cpu->X; // creating address by adding Y
 	cpu->Y = cpu_read_byte(ram, addr);
-	cycles++;
 	lda_set_status(cpu);
 }
 
@@ -712,6 +702,82 @@ void RTS(cpu6502_t *cpu, ram_t *ram)
 	cycles += 2; // for setting PC to return address
 }
 
+
+/*
+* SBC
+*/
+static inline void perform_sbc(cpu6502_t *cpu, byte fetched)
+{
+	word negate = ((word) fetched) ^ 0x00FF;
+	word tmp = ((word) cpu->A) + negate + ((word) (cpu->status & C) == 1 ? C : 0);
+	cpu->status |= (tmp & 0xFF00) ? C : 0;
+	cpu->status |= (tmp & 0x0080) ? N : 0;
+	cpu->status |= (tmp ^ (word) cpu->A) & (tmp ^ negate) & 0x0080 ? V : 0;
+	cpu->A = tmp & 0x00FF;
+}
+
+void SBC_IMM(cpu6502_t *cpu, ram_t *ram)
+{
+	byte data = cpu_fetch_byte(cpu, ram);
+	perform_sbc(cpu, data);
+}
+
+static inline void perform_sbc_zp(cpu6502_t *cpu, ram_t *ram, off_t addr_off)
+{
+	byte zp_addr = cpu_fetch_byte(cpu, ram) + addr_off;
+	byte data = cpu_read_byte(ram, zp_addr);
+	perform_sbc(cpu, data);
+}
+
+void SBC_ZP(cpu6502_t *cpu, ram_t *ram)
+{
+	perform_sbc_zp(cpu, ram, 0);
+}
+
+void SBC_ZPX(cpu6502_t *cpu, ram_t *ram)
+{
+	perform_sbc_zp(cpu, ram, cpu->X);
+}
+
+static inline void perform_sbc_abs(cpu6502_t *cpu, ram_t *ram, off_t addr_off)
+{
+	word abs_addr = cpu_fetch_word(cpu, ram) + addr_off;
+	byte data = cpu_fetch_byte(ram, abs_addr);
+	perform_sbc(cpu, data);
+}
+
+void SBC_ABS(cpu6502_t *cpu, ram_t *ram)
+{
+	perform_sbc_abs(cpu, ram, 0);
+}
+
+void SBC_ABSX(cpu6502_t *cpu, ram_t *ram)
+{
+	perform_sbc_abs(cpu, ram, cpu->X);
+}
+
+void SBC_ABSY(cpu6502_t *cpu, ram_t *ram)
+{
+	perform_sbc_abs(cpu, ram, cpu->Y);
+}
+
+static inline void perform_sbc_ind(cpu6502_t *cpu, ram_t *ram, off_t addr_off)
+{
+	word ind_addr = cpu_fetch_word(cpu, ram);
+	word abs_addr = cpu_read_word(ram, ind_addr);
+	byte data = cpu_read_byte(ram, abs_addr);
+	perform_sbc(cpu, ram, data);
+}
+
+void SBC_INDX(cpu6502_t *cpu, ram_t *ram)
+{
+	perform_sbc_ind(cpu, ram, cpu->X);
+}
+
+void SBC_INDY(cpu6502_t *cpu, ram_t *ram)
+{
+	perform_sbc_ind(cpu, ram, cpu->Y);
+}
 
 /*
  *
@@ -976,7 +1042,7 @@ void load_into_memory(ram_t *ram, const char *fname)
 	printf("Magic: %c %c\n", hdr.ef_magic[0], hdr.ef_magic[1]);
 	printf("Size: %d\n", hdr.ef_size);
 	printf("_start:\n \t%s\n", hdr.ef_data);
-	
+
 	// putting jump instruction manually for debugging purpose
 	word begin = PROG_BEGIN;
 	ram->data[begin++] = INS_JMP_ABS;
