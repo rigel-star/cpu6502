@@ -51,7 +51,6 @@ static uint32_t cycles = 0;
 byte cpu_fetch_byte(cpu6502_t *cpu, ram_t *ram)
 {
 	byte data = ram_read(ram, cpu->PC++);
-	cycles++;
 	return data;
 }
 
@@ -74,13 +73,11 @@ word cpu_fetch_word(cpu6502_t *cpu, ram_t *ram)
 
 byte cpu_read_byte(ram_t *ram, word addr)
 {
-	cycles++;
 	return ram_read(ram, addr);
 }
 
 word cpu_read_word(ram_t *ram, word addr)
 {
-	cycles += 2;
 	byte high = 0x0, low = 0x0;
 	if(__ORDER_LITTLE_ENDIAN__)
 	{
@@ -98,7 +95,6 @@ word cpu_read_word(ram_t *ram, word addr)
 void cpu_write_byte(ram_t *ram, word addr, byte data)
 {
 	ram_write(ram, addr, data);
-	cycles++;
 }
 
 void cpu_write_word(ram_t *ram, word addr, word data)
@@ -115,7 +111,6 @@ void cpu_write_word(ram_t *ram, word addr, word data)
 		ram_write(ram, addr, high);
 		ram_write(ram, addr + 1, low);
 	}
-	cycles += 2; // for writing 2 bytes on RAM
 }
 
 void cpu_push_stack_byte(cpu6502_t *cpu, ram_t *ram, byte data)
@@ -520,7 +515,7 @@ void JMP_IND(cpu6502_t *cpu, ram_t *ram)
 void lda_set_status(cpu6502_t *cpu)
 {
 	cpu->status |= Z;
-	cpu->status |= (cpu->A & N);
+	cpu->status |= (cpu->A & N) ? N : 0;
 }
 
 void LDA_IMM(cpu6502_t *cpu, ram_t *ram)
@@ -704,16 +699,30 @@ void RTS(cpu6502_t *cpu, ram_t *ram)
 
 
 /*
-* SBC
+ * SBC
 */
 static inline void perform_sbc(cpu6502_t *cpu, byte fetched)
 {
-	word negate = ((word) fetched) ^ 0x00FF;
-	word tmp = ((word) cpu->A) + negate + ((word) (cpu->status & C) == 1 ? C : 0);
-	cpu->status |= (tmp & 0xFF00) ? C : 0;
+	/*
+	Source:: https://www.reddit.com/r/EmuDev/comments/k5hzuo/6502_sbc/
+	-----------------------------------------------------------------
+	"The 6502 probably uses the same adder circuit for addition as it
+	does for subtraction. When subtracting, the subtrahend is first
+	converted to twos compliment (invert all bits + 1), then added to
+	the minuend. When you add two numbers like this, it effectively
+	subtracts them. It works because the sum overflows and leaves the
+	remainder, which is why the carry flag is set."
+	*/
+	#if 1
+	word negate = (((word) fetched) ^ 0x00FF) + 1; // to two's compliment
+	word tmp = ((word) cpu->A) + negate + ((cpu->status & C) ? 1 : 0);
+	cpu->status |= (tmp >> 0x7) & 0x1 ? C : 0;
 	cpu->status |= (tmp & 0x0080) ? N : 0;
 	cpu->status |= (tmp ^ (word) cpu->A) & (tmp ^ negate) & 0x0080 ? V : 0;
 	cpu->A = tmp & 0x00FF;
+	#else
+	perform_adc(cpu, ~(fetched));
+	#endif
 }
 
 void SBC_IMM(cpu6502_t *cpu, ram_t *ram)
@@ -742,7 +751,7 @@ void SBC_ZPX(cpu6502_t *cpu, ram_t *ram)
 static inline void perform_sbc_abs(cpu6502_t *cpu, ram_t *ram, off_t addr_off)
 {
 	word abs_addr = cpu_fetch_word(cpu, ram) + addr_off;
-	byte data = cpu_fetch_byte(ram, abs_addr);
+	byte data = cpu_read_byte(ram, abs_addr);
 	perform_sbc(cpu, data);
 }
 
@@ -763,10 +772,10 @@ void SBC_ABSY(cpu6502_t *cpu, ram_t *ram)
 
 static inline void perform_sbc_ind(cpu6502_t *cpu, ram_t *ram, off_t addr_off)
 {
-	word ind_addr = cpu_fetch_word(cpu, ram);
+	word ind_addr = cpu_fetch_word(cpu, ram) + addr_off;
 	word abs_addr = cpu_read_word(ram, ind_addr);
 	byte data = cpu_read_byte(ram, abs_addr);
-	perform_sbc(cpu, ram, data);
+	perform_sbc(cpu, data);
 }
 
 void SBC_INDX(cpu6502_t *cpu, ram_t *ram)
@@ -778,6 +787,186 @@ void SBC_INDY(cpu6502_t *cpu, ram_t *ram)
 {
 	perform_sbc_ind(cpu, ram, cpu->Y);
 }
+
+
+/*
+ *
+ * Stack operations
+ *
+ */
+void TXS(cpu6502_t *cpu)
+{
+	cpu->SP = cpu->X;
+}
+
+void TSX(cpu6502_t *cpu)
+{
+	cpu->X = cpu->SP;
+}
+
+void PHA(cpu6502_t *cpu, ram_t *ram)
+{
+	cpu_push_stack_byte(cpu, ram, cpu->A);
+}
+
+void PLA(cpu6502_t *cpu, ram_t *ram)
+{
+	cpu->A = cpu_pop_stack_byte(cpu, ram);
+}
+
+void PHP(cpu6502_t *cpu, ram_t *ram)
+{
+	cpu_push_stack_byte(cpu, ram, cpu->status);
+}
+
+void PLP(cpu6502_t *cpu, ram_t *ram)
+{
+	cpu->status = cpu_pop_stack_byte(cpu, ram);
+}
+
+/*
+ *
+ * STA - Store Accumulator in Memory
+ *
+ */
+void STA_ZP(cpu6502_t *cpu, ram_t *ram)
+{
+	word zp_addr = cpu_fetch_byte(cpu, ram);
+	cpu_write_byte(ram, zp_addr, cpu->A);
+}
+
+void STA_ZPX(cpu6502_t *cpu, ram_t *ram)
+{
+	word zp_addr = cpu_fetch_byte(cpu, ram) + cpu->X;
+	cpu_write_byte(ram, zp_addr, cpu->A);
+}
+
+void STA_ABS(cpu6502_t *cpu, ram_t *ram)
+{
+	word abs_addr = cpu_fetch_word(cpu, ram);
+	cpu_write_byte(ram, abs_addr, cpu->A);
+}
+
+void STA_ABSX(cpu6502_t *cpu, ram_t *ram)
+{
+	word abs_addr = cpu_fetch_word(cpu, ram) + cpu->X;
+	cpu_write_byte(ram, abs_addr, cpu->A);
+}
+
+void STA_ABSY(cpu6502_t *cpu, ram_t *ram)
+{
+	word abs_addr = cpu_fetch_word(cpu, ram) + cpu->Y;
+	cpu_write_byte(ram, abs_addr, cpu->A);
+}
+
+/* STA indirect */
+static inline void perform_sta_ind(cpu6502_t *cpu, ram_t *ram, off_t addr_off)
+{
+	word ind_addr = cpu_fetch_word(cpu, ram) + addr_off;
+	word abs_addr = cpu_read_word(ram, ind_addr);
+	cpu_write_byte(ram, abs_addr, cpu->A);
+}
+
+void STA_INDX(cpu6502_t *cpu, ram_t *ram)
+{
+	perform_sta_ind(cpu, ram, cpu->X);
+}
+
+void STA_INDY(cpu6502_t *cpu, ram_t *ram)
+{
+	perform_sta_ind(cpu, ram, cpu->Y);
+}
+
+/* STX */
+void STX_ZP(cpu6502_t *cpu, ram_t *ram)
+{
+	word zp_addr = cpu_fetch_byte(cpu, ram);
+	cpu_write_byte(ram, zp_addr, cpu->X);
+}
+
+void STX_ZPY(cpu6502_t *cpu, ram_t *ram)
+{
+	word zp_addr = cpu_fetch_byte(cpu, ram) + cpu->Y;
+	cpu_write_byte(ram, zp_addr, cpu->X);
+}
+
+void STX_ABS(cpu6502_t *cpu, ram_t *ram)
+{
+	word abs_addr = cpu_fetch_word(cpu, ram);
+	cpu_write_byte(ram, abs_addr, cpu->X);
+}
+
+
+/* STY */
+void STY_ZP(cpu6502_t *cpu, ram_t *ram)
+{
+	word zp_addr = cpu_fetch_byte(cpu, ram);
+	cpu_write_byte(ram, zp_addr, cpu->Y);
+}
+
+void STY_ZPX(cpu6502_t *cpu, ram_t *ram)
+{
+	word zp_addr = cpu_fetch_byte(cpu, ram) + cpu->X;
+	cpu_write_byte(ram, zp_addr, cpu->Y);
+}
+
+void STY_ABS(cpu6502_t *cpu, ram_t *ram)
+{
+	word abs_addr = cpu_fetch_word(cpu, ram);
+	cpu_write_byte(ram, abs_addr, cpu->Y);
+}
+
+void NOP()
+{
+	// no operation
+}
+
+/*
+ *
+ * Register instructions
+ *
+ */
+void TAX(cpu6502_t *cpu)
+{
+	cpu->A = cpu->X;
+}
+
+void TXA(cpu6502_t *cpu)
+{
+	cpu->X = cpu->A;
+}
+
+void DEX(cpu6502_t *cpu)
+{
+	cpu->X--;
+}
+
+void INX(cpu6502_t *cpu)
+{
+	cpu->X++;
+}
+
+void TAY(cpu6502_t *cpu)
+{
+	cpu->A = cpu->Y;
+}
+
+void TYA(cpu6502_t *cpu)
+{
+	cpu->Y = cpu->A;
+}
+
+void DEY(cpu6502_t *cpu)
+{
+	cpu->Y--;
+}
+
+void INY(cpu6502_t *cpu)
+{
+	cpu->Y++;
+}
+
+
 
 /*
  *
@@ -1013,8 +1202,45 @@ void cpu_execute(cpu6502_t *cpu, ram_t *ram)
 			ASL_ABSX(cpu, ram);
 			break;
 
+		case INS_SBC_IMM:
+			SBC_IMM(cpu, ram);
+			break;
+
+		case INS_SBC_ZP:
+			SBC_ZP(cpu, ram);
+			break;
+
+		case INS_SBC_ZPX:
+			SBC_ZPX(cpu, ram);
+			break;
+
+		case INS_SBC_ABS:
+			SBC_ABS(cpu, ram);
+			break;
+
+		case INS_SBC_ABSX:
+			SBC_ABSX(cpu, ram);
+			break;
+
+		case INS_SBC_ABSY:
+			SBC_ABSY(cpu, ram);
+			break;
+
+		case INS_SBC_INDX:
+			SBC_INDX(cpu, ram);
+			break;
+
+		case INS_SBC_INDY:
+			SBC_INDY(cpu, ram);
+			break;
+
 		case INS_KIL:
+			cpu->PC++;
 			process_complete = true;
+			break;
+
+		case INS_NOP:
+			NOP(cpu);
 			break;
 
 		default:

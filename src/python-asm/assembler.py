@@ -26,6 +26,10 @@ INS_LOOKUP_TABLE = {
 		{
 			"imm": 	InstrInfo(opcode=0x69),
 		},
+	"sbc" :
+		{
+			"imm": InstrInfo(opcode=0xE9),
+		},
 	"jmp" :
 		{
 			"abs":	InstrInfo(opcode=0x4C),
@@ -35,13 +39,17 @@ INS_LOOKUP_TABLE = {
 		{
 			"imp": InstrInfo(opcode=0x60)
 		},
-	"jsr":
+	"jsr" :
 		{
 			"abs": InstrInfo(opcode=0x20)
 		},
 	"kil" :
 		{
 			"imp": InstrInfo(opcode=0x02)
+		},
+	"nop" :
+		{
+			"imp": InstrInfo(opcode=0xEA)
 		}
 }
 
@@ -195,12 +203,12 @@ def parse_instr_line(instruction_line):
 
 # Assembling starts here
 def assemble(stream, args):
-	pure_lines =list(filter(lambda line: line != "", 
+	pure_lines =list(filter(lambda line: line != "",
 				list(map(lambda line: line.strip(), stream.split("\n")))))
 
 	output_file_ir = open(args.output + ".ir65", "wb")
 
-	# writing magic number 
+	# writing magic number
 	output_file_ir.write(ord('E').to_bytes(1, sys.byteorder, signed=False))
 	output_file_ir.write(ord('F').to_bytes(1, sys.byteorder, signed=False))
 

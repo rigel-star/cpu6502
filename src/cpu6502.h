@@ -252,7 +252,7 @@ void LSR_ABSX(cpu6502_t *cpu, ram_t *ram);
 
 
 /* NOP */
-void NOP(cpu6502_t *cpu);
+void NOP();
 
 
 /* RTI */
@@ -261,17 +261,6 @@ void RTI(cpu6502_t *cpu);
 
 /* Break */
 void BRK(cpu6502_t *cpu);
-
-
-/* Register instructions */
-void TAX(cpu6502_t *cpu);
-void TXA(cpu6502_t *cpu);
-void DEX(cpu6502_t *cpu);
-void INX(cpu6502_t *cpu);
-void TAY(cpu6502_t *cpu);
-void TYA(cpu6502_t *cpu);
-void DEY(cpu6502_t *cpu);
-void INY(cpu6502_t *cpu);
 
 
 /* EOR */
@@ -357,15 +346,17 @@ void LSR_ZPX(cpu6502_t *cpu, ram_t *ram);
 void LSR_ABS(cpu6502_t *cpu, ram_t *ram);
 void LSR_ABSX(cpu6502_t *cpu, ram_t *ram);
 
+// TODO up from here ^^^^^^^^^^^^^^^^^^^^^^^
 
-/* STA */
-void STA_ZP(cpu6502_t *cpu, ram_t *ram);
-void STA_ZPX(cpu6502_t *cpu, ram_t *ram);
-void STA_ABS(cpu6502_t *cpu, ram_t *ram);
-void STA_ABSX(cpu6502_t *cpu, ram_t *ram);
-void STA_ABSY(cpu6502_t *cpu, ram_t *ram);
-void STA_INDX(cpu6502_t *cpu, ram_t *ram);
-void STA_INDY(cpu6502_t *cpu, ram_t *ram);
+/* Register instructions */
+void TAX(cpu6502_t *cpu);
+void TXA(cpu6502_t *cpu);
+void DEX(cpu6502_t *cpu);
+void INX(cpu6502_t *cpu);
+void TAY(cpu6502_t *cpu);
+void TYA(cpu6502_t *cpu);
+void DEY(cpu6502_t *cpu);
+void INY(cpu6502_t *cpu);
 
 
 /* STX */
@@ -380,15 +371,24 @@ void STY_ZPX(cpu6502_t *cpu, ram_t *ram);
 void STY_ABS(cpu6502_t *cpu, ram_t *ram);
 
 
+/* STA */
+void STA_ZP(cpu6502_t *cpu, ram_t *ram);
+void STA_ZPX(cpu6502_t *cpu, ram_t *ram);
+void STA_ABS(cpu6502_t *cpu, ram_t *ram);
+void STA_ABSX(cpu6502_t *cpu, ram_t *ram);
+void STA_ABSY(cpu6502_t *cpu, ram_t *ram);
+void STA_INDX(cpu6502_t *cpu, ram_t *ram);
+void STA_INDY(cpu6502_t *cpu, ram_t *ram);
+
+
 /* Stack operations */
-void TXS(cpu6502_t *cpu, ram_t *ram);
-void TSX(cpu6502_t *cpu, ram_t *ram);
-void PHS(cpu6502_t *cpu, ram_t *ram);
+void TXS(cpu6502_t *cpu);
+void TSX(cpu6502_t *cpu);
+void PHA(cpu6502_t *cpu, ram_t *ram);
 void PLA(cpu6502_t *cpu, ram_t *ram);
 void PHP(cpu6502_t *cpu, ram_t *ram);
 void PLP(cpu6502_t *cpu, ram_t *ram);
 
-// TODO up from here ^^^^^^^^^^^^^^^^^^^^^^^
 
 /* SBC */
 void SBC_IMM(cpu6502_t *cpu, ram_t *ram);
