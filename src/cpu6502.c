@@ -1264,7 +1264,7 @@ void load_into_memory(ram_t *ram, const char *fname)
 		exit(1);
 	}
 
-	printf("EF file info:\n");
+	puts("EF file info:");
 	printf("Magic: %c %c\n", hdr.ef_magic[0], hdr.ef_magic[1]);
 	printf("Size: %d\n", hdr.ef_size);
 	printf("_start:\n \t%s\n", hdr.ef_data);

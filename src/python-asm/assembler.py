@@ -5,8 +5,7 @@ import sys
 from collections import namedtuple
 from bytes_op import btol, ltob
 
-
-BYTEORD = sys.byteorder
+BYTEORDER = sys.byteorder
 
 class Colors:
 	RED = "\033[91m"
@@ -50,6 +49,10 @@ INS_LOOKUP_TABLE = {
 	"nop" :
 		{
 			"imp": InstrInfo(opcode=0xEA)
+		},
+	"clc" :
+		{
+			"imp": InstrInfo(opcode=0x18)
 		}
 }
 
@@ -71,12 +74,18 @@ def strip_comments(line):
 		line = line[:comment_index]
 	return line.strip()
 
-
+SUPPORTED_DIRECTIVES = ['org', 'bit']
 def parse_directive(line):
 	# directive syntax : [.dir_name value]
 	global user_defined_directives
 	splited_str = line.split(" ", 1)
+
+	if len(splited_str) != 2:
+		return ParseError.ERR_SYN
+
 	name = splited_str[0][2:]
+	if not name in SUPPORTED_DIRECTIVES:
+		return ParseError.ERR_SYN
 
 	end_index = splited_str[1].find("]")
 	if end_index < 0:
@@ -99,11 +108,11 @@ def preprocess(source_lines):
 				print("Preprocess: syntax error at line", line_no)
 				sys.exit(-1)
 		else:
-			line_no += 1
 			if line == "":
 				continue
 			else:
 				processed_source.append(noc_line)
+		line_no += 1
 	return processed_source
 
 
@@ -232,22 +241,24 @@ def assemble(stream, args):
 				output_array.append(byte)
 
 	output_size = len(output_array)
-	size_high = ((output_size >> 8) & 0xFF).to_bytes(1, BYTEORD, signed=False)
-	size_low = (output_size  & 0xFF).to_bytes(1, BYTEORD, signed=False)
-	if BYTEORD == "big":
+	size_high = ((output_size >> 8) & 0xFF).to_bytes(1, BYTEORDER, signed=False)
+	size_low = (output_size  & 0xFF).to_bytes(1, BYTEORDER, signed=False)
+	if BYTEORDER == "big":
 		output_file_ir.write(size_high)
 		output_file_ir.write(size_low)
-	elif BYTEORD == "little":
+	elif BYTEORDER == "little":
 		output_file_ir.write(size_low)
 		output_file_ir.write(size_high)
 
 	for byte in output_array:
-		output_file_ir.write(byte.to_bytes(1, sys.byteorder, signed=False))
+		output_file_ir.write(byte.to_bytes(1, BYTEORDER, signed=False))
+
+	output_file_ir.close()
 	print("done")
 
 
 def print_as_fatal_error(error):
-	print("assembler: " + Colors.RED + "fatal error: " + Colors.END + error)
+	print(f"assembler: {Colors.RED} fatal error: {Colors.END} {error}")
 	print("assembling terminated.")
 	sys.exit(1)
 
