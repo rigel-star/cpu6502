@@ -36,23 +36,23 @@ INS_LOOKUP_TABLE = {
 		},
 	"rts" :
 		{
-			"imp": InstrInfo(opcode=0x60)
+			"imp": InstrInfo(opcode=0x60),
 		},
 	"jsr" :
 		{
-			"abs": InstrInfo(opcode=0x20)
+			"abs": InstrInfo(opcode=0x20),
 		},
 	"kil" :
 		{
-			"imp": InstrInfo(opcode=0x02)
+			"imp": InstrInfo(opcode=0x02),
 		},
 	"nop" :
 		{
-			"imp": InstrInfo(opcode=0xEA)
+			"imp": InstrInfo(opcode=0xEA),
 		},
 	"clc" :
 		{
-			"imp": InstrInfo(opcode=0x18)
+			"imp": InstrInfo(opcode=0x18),
 		}
 }
 
